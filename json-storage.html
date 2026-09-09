@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <title>保管庫</title>
+  <style>
+    :root{
+      --bg:#f5f6f8;
+      --panel:#fff;
+      --text:#111318;
+      --muted:#757b84;
+      --line:#e5e7eb;
+      --dark:#0f1115;
+      --soft:#f1f3f5;
+      --danger:#b42318;
+      --ok:#159447;
+      --warn:#c28a00;
+      --radius:18px;
+      --shadow:0 10px 30px rgba(15,17,21,.06);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif}
+    button,input,textarea{font:inherit}
+    button{cursor:pointer}
+    .app{min-height:100vh;display:grid;grid-template-columns:250px minmax(0,1fr)}
+    aside{
+      position:sticky;top:0;height:100vh;background:var(--dark);color:#fff;
+      padding:24px 18px;display:flex;flex-direction:column;gap:20px
+    }
+    .brand{font-size:23px;font-weight:800;letter-spacing:.02em}
+    .brand small{display:block;margin-top:5px;font-size:11px;font-weight:500;color:#8e95a0}
+    .nav{display:grid;gap:8px}
+    .nav button{
+      border:0;background:transparent;color:#cfd3da;text-align:left;padding:12px 13px;border-radius:13px
+    }
+    .nav button.active{background:#fff;color:#111}
+    .nav-link{
+      display:block;color:#8e95a0;text-decoration:none;padding:12px 13px;border-radius:13px;font-size:13px
+    }
+    .nav-link:hover{color:#cfd3da}
+    .side-status{margin-top:auto;color:#8e95a0;font-size:12px;line-height:1.6}
+    .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;background:#777}
+    .dot.api{background:var(--ok)}
+    .dot.local{background:var(--warn)}
+    .dot.offline{background:#cc3b3b}
+    main{width:100%;max-width:1180px;margin:0 auto;padding:26px}
+    .mobile-head{display:none}
+    .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+    .search{flex:1}
+    .search input{
+      width:100%;border:1px solid var(--line);background:#fff;border-radius:15px;
+      padding:14px 16px;outline:none
+    }
+    .search input:focus{border-color:#babfc7}
+    .btn{
+      border:1px solid var(--line);background:#fff;color:#111;border-radius:14px;
+      padding:12px 15px;font-weight:700
+    }
+    .btn.primary{background:#111;color:#fff;border-color:#111}
+    .btn.danger{color:var(--danger)}
+    .section-head{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:12px}
+    .section-head h1{font-size:28px;margin:0}
+    .count{font-size:13px;color:var(--muted)}
+    .list{display:grid;gap:11px}
+    .card{
+      background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+      padding:17px 18px;box-shadow:var(--shadow)
+    }
+    .card-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+    .card-title{font-size:17px;font-weight:800;margin:0 0 6px;word-break:break-word}
+    .meta{font-size:12px;color:var(--muted)}
+    .preview{
+      margin:13px 0 0;white-space:pre-wrap;word-break:break-word;line-height:1.72;color:#30343a
+    }
+    .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+    .tag{font-size:12px;background:var(--soft);border-radius:999px;padding:5px 9px;color:#4c525b}
+    .actions{display:flex;gap:7px;flex-shrink:0}
+    .ghost{
+      border:1px solid var(--line);background:#fff;border-radius:11px;padding:8px 10px
+    }
+    .empty{
+      background:#fff;border:1px dashed #d4d7dd;border-radius:18px;padding:48px 20px;text-align:center;color:var(--muted)
+    }
+    .floating{display:none}
+    dialog{
+      border:0;border-radius:22px;width:min(720px,calc(100vw - 26px));padding:0;
+      box-shadow:0 32px 100px rgba(0,0,0,.28)
+    }
+    dialog::backdrop{background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
+    .modal{padding:22px;background:#fff}
+    .modal h2{margin:0 0 18px}
+    .field{margin-bottom:15px}
+    .field label{display:block;font-size:13px;font-weight:750;margin-bottom:7px}
+    .field input,.field textarea{
+      width:100%;border:1px solid var(--line);border-radius:13px;padding:12px 13px;outline:none;background:#fff
+    }
+    .field textarea{min-height:270px;resize:vertical;line-height:1.65}
+    .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
+    .small-note{font-size:12px;color:var(--muted);line-height:1.6}
+    .menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .menu-card{
+      border:1px solid var(--line);background:#fff;border-radius:15px;padding:15px;text-align:left
+    }
+    .menu-card strong{display:block;margin-bottom:4px}
+    .toast{
+      position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);
+      opacity:0;pointer-events:none;transition:.22s;background:#111;color:#fff;padding:11px 15px;
+      border-radius:12px;font-size:13px;z-index:100
+    }
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .index-pill{
+      display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#6d747d;
+      margin-left:8px
+    }
+    .mini-dot{width:6px;height:6px;border-radius:50%;background:#aaa}
+    .mini-dot.ready{background:var(--ok)}
+    .mini-dot.pending{background:var(--warn)}
+    .mini-dot.failed{background:#cc3b3b}
+    @media(max-width:760px){
+      .app{display:block}
+      aside{display:none}
+      main{padding:14px 13px 92px}
+      .mobile-head{display:flex;align-items:center;justify-content:space-between;padding:5px 2px 10px}
+      .mobile-head strong{font-size:20px}
+      .toolbar{
+        position:sticky;top:0;z-index:20;background:rgba(245,246,248,.93);backdrop-filter:blur(12px);
+        padding:7px 0 11px;margin-bottom:8px
+      }
+      .toolbar .desktop-only{display:none}
+      .section-head h1{font-size:21px}
+      .card-top{display:block}
+      .actions{margin-top:15px;justify-content:flex-end}
+      .floating{
+        display:block;position:fixed;right:18px;bottom:18px;z-index:25;width:58px;height:58px;border-radius:50%;
+        border:0;background:#111;color:#fff;font-size:28px;box-shadow:0 14px 40px rgba(0,0,0,.24)
+      }
+      .menu-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">保管庫<small>BROWSER STORAGE</small></div>
+
+    <div class="nav">
+      <a class="nav-link" href="./index.html">← マイツール</a>
+      <button class="active" type="button">すべて</button>
+      <button id="sideNew" type="button">＋ 新規保存</button>
+      <button id="sideData" type="button">データ管理</button>
+    </div>
+
+    <div class="side-status">
+      <div><span id="statusDot" class="dot"></span><span id="statusText">接続確認中</span></div>
+      <div style="margin-top:6px">データはこの端末のブラウザに保存されます。他の端末へ移すにはJSONを書き出してください。</div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="mobile-head">
+      <a class="ghost" href="./index.html" style="text-decoration:none;color:inherit">←</a>
+      <strong>保管庫</strong>
+      <button id="mobileData" class="ghost" type="button">管理</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="search">
+        <input id="searchInput" type="search" placeholder="保管庫を検索" autocomplete="off">
+      </div>
+      <button id="topData" class="btn desktop-only" type="button">データ管理</button>
+      <button id="topNew" class="btn primary desktop-only" type="button">＋ 新規保存</button>
+    </div>
+
+    <div class="section-head">
+      <h1>保存データ</h1>
+      <span id="count" class="count">0件</span>
+    </div>
+
+    <section id="list" class="list"></section>
+  </main>
+</div>
+
+<button id="floatingNew" class="floating" type="button" aria-label="新規保存">＋</button>
+
+<dialog id="editor">
+  <form id="editorForm" class="modal">
+    <h2 id="editorTitle">新規保存</h2>
+
+    <div class="field">
+      <label for="titleInput">タイトル</label>
+      <input id="titleInput" maxlength="160" required placeholder="タイトル">
+    </div>
+
+    <div class="field">
+      <label for="contentInput">本文</label>
+      <textarea id="contentInput" required placeholder="保存したい内容を入力"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="tagsInput">タグ</label>
+      <input id="tagsInput" placeholder="例：AI, 資料, アイデア">
+    </div>
+
+    <div class="modal-actions">
+      <button id="cancelBtn" class="btn" type="button">キャンセル</button>
+      <button id="saveBtn" class="btn primary" type="submit">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dataDialog">
+  <div class="modal">
+    <h2>データ管理</h2>
+
+    <div class="menu-grid">
+      <button id="exportJsonBtn" class="menu-card" type="button">
+        <strong>JSONを書き出す</strong>
+        <span class="small-note">保管庫データを1つのJSONファイルとして保存します。</span>
+      </button>
+
+      <button id="importJsonBtn" class="menu-card" type="button">
+        <strong>JSONを読み込む</strong>
+        <span class="small-note">以前書き出したJSONを保管庫へ取り込みます。</span>
+      </button>
+    </div>
+
+    <div class="small-note" style="margin-top:16px">
+      保存データはこの端末のブラウザ内（localStorage）にあります。
+      別の端末やブラウザへ移すときは、JSONを書き出して移動先で読み込んでください。
+      読み込むと同じIDのデータは上書きされます。
+    </div>
+
+    <div class="modal-actions">
+      <button id="closeDataBtn" class="btn" type="button">閉じる</button>
+    </div>
+
+    <input id="fileInput" type="file" accept=".json,application/json" hidden>
+  </div>
+</dialog>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/*
+  ==================================================================
+  AI保管庫 完成版フロント v1.0
+  ------------------------------------------------------------------
+  本番想定API:
+
+    GET    /api/health
+    GET    /api/v1/items?limit=...
+    GET    /api/v1/items/:id
+    POST   /api/v1/items
+    PUT    /api/v1/items/:id
+    DELETE /api/v1/items/:id
+    GET    /api/v1/search?q=...
+    GET    /api/v1/items/:id/index-status
+
+  保存JSON:
+    {
+      "title": "...",
+      "content": "...",
+      "tags": ["...", "..."],
+      "type": "text",
+      "source_url": null
+    }
+
+  本番:
+    Frontend -> JSON -> FastAPI -> PostgreSQL
+      -> jobs -> Worker -> chunks -> Embedding -> pgvector
+
+  この単体HTMLはサーバーが無い状態でも動作確認できるよう
+  localStorageモードを搭載している。
+  本番公開時は ALLOW_LOCAL_FALLBACK=false を推奨。
+  ==================================================================
+*/
+
+const CONFIG = {
+  API_BASE: "",
+  ALLOW_LOCAL_FALLBACK: true,
+  LOCAL_KEY: "ai_archive_frontend_v1",
+  SEARCH_DEBOUNCE_MS: 250,
+  API_TIMEOUT_MS: 4500
+};
+
+let mode = "checking"; // api | local | offline
+let items = [];
+let editingId = null;
+let searchTimer = null;
+
+const $ = id => document.getElementById(id);
+const listEl = $("list");
+const countEl = $("count");
+const searchInput = $("searchInput");
+const editor = $("editor");
+const dataDialog = $("dataDialog");
+const form = $("editorForm");
+const titleInput = $("titleInput");
+const contentInput = $("contentInput");
+const tagsInput = $("tagsInput");
+const saveBtn = $("saveBtn");
+const fileInput = $("fileInput");
+
+function escapeHtml(s=""){
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  })[c]);
+}
+
+function parseTags(value){
+  return value.split(/[,、\n]/).map(v=>v.trim()).filter(Boolean).slice(0,30);
+}
+
+function normalizeItem(item){
+  const now = new Date().toISOString();
+  return {
+    id: item.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random())),
+    title: String(item.title || "無題").slice(0,160),
+    content: String(item.content || ""),
+    tags: Array.isArray(item.tags) ? item.tags.map(String).slice(0,30) : [],
+    type: item.type || "text",
+    source_url: item.source_url ?? null,
+    index_status: item.index_status || "ready",
+    created_at: item.created_at || item.createdAt || now,
+    updated_at: item.updated_at || item.updatedAt || now
+  };
+}
+
+function toast(message){
+  const el = $("toast");
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>el.classList.remove("show"), 1900);
+}
+
+function setStatus(nextMode){
+  mode = nextMode;
+  const dot = $("statusDot");
+  const text = $("statusText");
+  dot.className = "dot";
+  if(nextMode === "api"){
+    dot.classList.add("api");
+    text.textContent = "サーバー接続";
+  }else if(nextMode === "local"){
+    dot.classList.add("local");
+    text.textContent = "ローカルモード";
+  }else{
+    dot.classList.add("offline");
+    text.textContent = "オフライン";
+  }
+}
+
+function apiUrl(path){ return `${CONFIG.API_BASE}${path}`; }
+
+async function apiRequest(path, options={}){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), CONFIG.API_TIMEOUT_MS);
+  try{
+    const res = await fetch(apiUrl(path), {
+      ...options,
+      headers:{
+        "Content-Type":"application/json",
+        ...(options.headers || {})
+      },
+      credentials:"include",
+      signal:controller.signal
+    });
+
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    if(res.status === 204) return null;
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function localLoad(){
+  try{
+    return JSON.parse(localStorage.getItem(CONFIG.LOCAL_KEY) || "[]").map(normalizeItem);
+  }catch{
+    return [];
+  }
+}
+
+function localSave(data){
+  localStorage.setItem(CONFIG.LOCAL_KEY, JSON.stringify(data));
+}
+
+async function detectBackend(){
+  // API_BASE が未設定＝サーバーを使わない構成（GitHub Pages 等）。
+  // 存在しない /api/health を叩いて 404 を出す意味がないので、そのままローカル保存で動かす。
+  if(!CONFIG.API_BASE){
+    setStatus(CONFIG.ALLOW_LOCAL_FALLBACK ? "local" : "offline");
+    return;
+  }
+  try{
+    await apiRequest("/api/health");
+    setStatus("api");
+  }catch{
+    if(CONFIG.ALLOW_LOCAL_FALLBACK) setStatus("local");
+    else setStatus("offline");
+  }
+}
+
+async function loadItems(query=""){
+  try{
+    if(mode === "api"){
+      const endpoint = query
+        ? `/api/v1/search?q=${encodeURIComponent(query)}`
+        : `/api/v1/items?limit=200`;
+
+      const data = await apiRequest(endpoint);
+      const arr = Array.isArray(data) ? data : (data.items || []);
+      items = arr.map(normalizeItem);
+    }else{
+      const all = localLoad();
+      if(!query){
+        items = all;
+      }else{
+        const q = query.toLowerCase();
+        items = all.filter(item => {
+          const haystack = [item.title,item.content,...(item.tags||[])].join(" ").toLowerCase();
+          return haystack.includes(q);
+        });
+      }
+    }
+    render();
+  }catch(err){
+    console.error(err);
+    toast("読み込みに失敗しました");
+  }
+}
+
+function indexBadge(status){
+  const s = status || "ready";
+  const label = {
+    ready:"AI検索準備済み",
+    pending:"AI検索準備中",
+    processing:"AI検索準備中",
+    failed:"AI検索準備失敗"
+  }[s] || "AI検索";
+  const cls = s === "ready" ? "ready" : (s === "failed" ? "failed" : "pending");
+  return `<span class="index-pill"><span class="mini-dot ${cls}"></span>${label}</span>`;
+}
+
+function render(){
+  const sorted = [...items].sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));
+  countEl.textContent = `${sorted.length}件`;
+
+  if(!sorted.length){
+    listEl.innerHTML = `<div class="empty">${
+      searchInput.value.trim() ? "一致するデータがありません。" : "まだ何も保存されていません。"
+    }</div>`;
+    return;
+  }
+
+  listEl.innerHTML = sorted.map(item => {
+    const content = item.content || "";
+    const preview = content.length > 320 ? content.slice(0,320) + "…" : content;
+    const date = new Intl.DateTimeFormat("ja-JP",{
+      year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"
+    }).format(new Date(item.updated_at));
+    const tags = (item.tags||[]).map(t=>`<span class="tag">#${escapeHtml(t)}</span>`).join("");
+
+    return `
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <h2 class="card-title">${escapeHtml(item.title || "無題")}</h2>
+            <div class="meta">更新 ${date}${mode==="api" ? indexBadge(item.index_status) : ""}</div>
+          </div>
+          <div class="actions">
+            <button class="ghost" type="button" onclick="editItem('${item.id}')">編集</button>
+            <button class="ghost danger" type="button" onclick="removeItem('${item.id}')">削除</button>
+          </div>
+        </div>
+        <p class="preview">${escapeHtml(preview)}</p>
+        ${tags ? `<div class="tags">${tags}</div>` : ""}
+      </article>
+    `;
+  }).join("");
+}
+
+function openNew(){
+  editingId = null;
+  $("editorTitle").textContent = "新規保存";
+  form.reset();
+  editor.showModal();
+  setTimeout(()=>titleInput.focus(),50);
+}
+
+window.editItem = async function(id){
+  let item = items.find(x=>String(x.id)===String(id));
+
+  if(!item && mode === "api"){
+    try{
+      item = normalizeItem(await apiRequest(`/api/v1/items/${encodeURIComponent(id)}`));
+    }catch{}
+  }
+
+  if(!item) return;
+
+  editingId = id;
+  $("editorTitle").textContent = "編集";
+  titleInput.value = item.title;
+  contentInput.value = item.content;
+  tagsInput.value = (item.tags || []).join(", ");
+  editor.showModal();
+};
+
+window.removeItem = async function(id){
+  const item = items.find(x=>String(x.id)===String(id));
+  if(!confirm(`「${item?.title || "このデータ"}」を削除しますか？`)) return;
+
+  try{
+    if(mode === "api"){
+      await apiRequest(`/api/v1/items/${encodeURIComponent(id)}`, {method:"DELETE"});
+    }else{
+      const all = localLoad().filter(x=>String(x.id)!==String(id));
+      localSave(all);
+    }
+    toast("削除しました");
+    await loadItems(searchInput.value.trim());
+  }catch(err){
+    console.error(err);
+    toast("削除に失敗しました");
+  }
+};
+
+form.addEventListener("submit", async e=>{
+  e.preventDefault();
+
+  const payload = {
+    title: titleInput.value.trim(),
+    content: contentInput.value.trim(),
+    tags: parseTags(tagsInput.value),
+    type: "text",
+    source_url: null
+  };
+
+  if(!payload.title || !payload.content) return;
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = "保存中";
+
+  try{
+    if(mode === "api"){
+      if(editingId){
+        await apiRequest(`/api/v1/items/${encodeURIComponent(editingId)}`,{
+          method:"PUT",
+          body:JSON.stringify(payload)
+        });
+      }else{
+        await apiRequest("/api/v1/items",{
+          method:"POST",
+          body:JSON.stringify(payload)
+        });
+      }
+    }else{
+      const all = localLoad();
+      const now = new Date().toISOString();
+
+      if(editingId){
+        const index = all.findIndex(x=>String(x.id)===String(editingId));
+        if(index >= 0){
+          all[index] = normalizeItem({
+            ...all[index],
+            ...payload,
+            updated_at:now
+          });
+        }
+      }else{
+        all.push(normalizeItem({
+          ...payload,
+          created_at:now,
+          updated_at:now,
+          index_status:"ready"
+        }));
+      }
+      localSave(all);
+    }
+
+    editor.close();
+    toast("保存しました");
+    await loadItems(searchInput.value.trim());
+  }catch(err){
+    console.error(err);
+    toast("保存に失敗しました");
+  }finally{
+    saveBtn.disabled = false;
+    saveBtn.textContent = "保存";
+  }
+});
+
+searchInput.addEventListener("input", ()=>{
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(()=>loadItems(searchInput.value.trim()), CONFIG.SEARCH_DEBOUNCE_MS);
+});
+
+function openDataDialog(){ dataDialog.showModal(); }
+
+async function getAllItemsForExport(){
+  if(mode === "api"){
+    const data = await apiRequest("/api/v1/items?limit=10000");
+    const arr = Array.isArray(data) ? data : (data.items || []);
+    return arr.map(normalizeItem);
+  }
+  return localLoad();
+}
+
+$("exportJsonBtn").addEventListener("click", async ()=>{
+  try{
+    const exportItems = await getAllItemsForExport();
+
+    const archive = {
+      format:"ai-archive",
+      version:"1.0",
+      exported_at:new Date().toISOString(),
+      count:exportItems.length,
+      items:exportItems.map(item => ({
+        id:item.id,
+        title:item.title,
+        content:item.content,
+        tags:item.tags,
+        type:item.type,
+        source_url:item.source_url,
+        created_at:item.created_at,
+        updated_at:item.updated_at
+      }))
+    };
+
+    const blob = new Blob([JSON.stringify(archive,null,2)],{type:"application/json;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const date = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `archive_${date}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    toast("JSONを書き出しました");
+  }catch(err){
+    console.error(err);
+    toast("JSON書き出しに失敗しました");
+  }
+});
+
+$("importJsonBtn").addEventListener("click", ()=>fileInput.click());
+
+fileInput.addEventListener("change", async ()=>{
+  const file = fileInput.files?.[0];
+  if(!file) return;
+
+  try{
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const incoming = Array.isArray(parsed) ? parsed : parsed.items;
+
+    if(!Array.isArray(incoming)){
+      throw new Error("items array not found");
+    }
+
+    if(!confirm(`${incoming.length}件のデータを読み込みますか？`)) return;
+
+    if(mode === "api"){
+      let ok = 0;
+      for(const raw of incoming){
+        const item = normalizeItem(raw);
+        if(!item.content) continue;
+
+        const payload = {
+          title:item.title,
+          content:item.content,
+          tags:item.tags,
+          type:item.type || "text",
+          source_url:item.source_url ?? null
+        };
+
+        await apiRequest("/api/v1/items",{
+          method:"POST",
+          body:JSON.stringify(payload)
+        });
+        ok++;
+      }
+      toast(`${ok}件読み込みました`);
+    }else{
+      const current = localLoad();
+      const map = new Map(current.map(x=>[String(x.id),x]));
+
+      for(const raw of incoming){
+        const item = normalizeItem(raw);
+        map.set(String(item.id), item);
+      }
+
+      localSave([...map.values()]);
+      toast(`${incoming.length}件読み込みました`);
+    }
+
+    dataDialog.close();
+    fileInput.value = "";
+    await loadItems();
+  }catch(err){
+    console.error(err);
+    toast("JSON読み込みに失敗しました");
+    fileInput.value = "";
+  }
+});
+
+$("cancelBtn").addEventListener("click",()=>editor.close());
+$("closeDataBtn").addEventListener("click",()=>dataDialog.close());
+$("sideNew").addEventListener("click",openNew);
+$("topNew").addEventListener("click",openNew);
+$("floatingNew").addEventListener("click",openNew);
+$("sideData").addEventListener("click",openDataDialog);
+$("topData").addEventListener("click",openDataDialog);
+$("mobileData").addEventListener("click",openDataDialog);
+
+(async function init(){
+  await detectBackend();
+  await loadItems();
+})();
+</script>
+</body>
+</html>

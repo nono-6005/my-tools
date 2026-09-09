@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>マイツール</title>
+<style>
+:root{
+  --bg:#f5f6f8;
+  --panel:#fff;
+  --text:#111318;
+  --muted:#757b84;
+  --line:#e5e7eb;
+  --shadow:0 10px 30px rgba(15,17,21,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+  line-height:1.6;
+}
+.wrap{max-width:720px;margin:0 auto;padding:48px 20px 64px}
+h1{font-size:30px;margin:0 0 6px;letter-spacing:-.01em}
+.lead{color:var(--muted);font-size:14px;margin:0 0 32px}
+.tools{display:grid;gap:14px}
+.tool{
+  display:block;background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  padding:20px 22px;text-decoration:none;color:inherit;box-shadow:var(--shadow);
+  transition:transform .12s ease, border-color .12s ease;
+}
+.tool:hover{transform:translateY(-2px);border-color:#c9ced6}
+.tool:active{transform:none}
+.tool strong{display:block;font-size:18px;margin-bottom:5px}
+.tool span{display:block;color:var(--muted);font-size:13.5px}
+.note{
+  margin-top:32px;background:#fff;border:1px solid var(--line);border-radius:16px;
+  padding:18px 20px;color:var(--muted);font-size:13px
+}
+.note strong{display:block;color:var(--text);margin-bottom:6px;font-size:14px}
+.note ul{margin:0;padding-left:1.2em}
+.note li{margin:4px 0}
+@media(max-width:600px){
+  .wrap{padding:30px 16px 56px}
+  h1{font-size:25px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>マイツール</h1>
+  <p class="lead">ブラウザだけで動く自作ツール。PC・スマホ共通。</p>
+
+  <div class="tools">
+    <a class="tool" href="./threads.html">
+      <strong>デモThreads</strong>
+      <span>投稿前に、単発／ツリー投稿がThreadsのTLでどう見えるか確認する</span>
+    </a>
+
+    <a class="tool" href="./json-storage.html">
+      <strong>JSON保管庫</strong>
+      <span>文章をタイトル・タグ付きで保存して検索する。JSONで書き出し／読み込み</span>
+    </a>
+  </div>
+
+  <div class="note">
+    <strong>保存について</strong>
+    <ul>
+      <li>データは開いている端末のブラウザ内に保存されます。</li>
+      <li>スマホとPCの間で自動同期はされません。</li>
+      <li>移したいときは各ツールのJSON書き出し／読み込みを使ってください。</li>
+      <li>ブラウザの履歴・サイトデータを消すと保存内容も消えます。</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050505">
+<title>デモThreads</title>
+<style>
+:root{
+  --bg:#050505;
+  --panel:#0c0c0c;
+  --line:#262626;
+  --text:#f5f5f5;
+  --muted:#8e8e8e;
+  --soft:#171717;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+body{min-height:100vh}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+.app{
+  max-width:1180px;
+  margin:0 auto;
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:430px minmax(0,1fr);
+}
+.editor{
+  height:100vh;
+  position:sticky;
+  top:0;
+  overflow:auto;
+  padding:22px;
+  background:var(--panel);
+  border-right:1px solid var(--line);
+}
+.back-link{
+  display:inline-block;color:var(--muted);text-decoration:none;font-size:13px;margin-bottom:12px
+}
+.back-link:hover{color:var(--text)}
+.editor h1{margin:0 0 5px;font-size:22px;letter-spacing:-.02em}
+.sub{font-size:13px;line-height:1.55;color:var(--muted);margin-bottom:18px}
+.field{margin:14px 0}
+.field label{display:block;font-size:12px;color:#bdbdbd;margin-bottom:7px}
+input,textarea{
+  width:100%;
+  background:#151515;
+  border:1px solid #303030;
+  color:white;
+  border-radius:13px;
+  padding:12px 13px;
+  outline:none;
+}
+input:focus,textarea:focus{border-color:#555}
+textarea{min-height:170px;resize:vertical;line-height:1.6;font-size:15px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.counter{display:flex;justify-content:space-between;color:#777;font-size:12px;margin-top:7px}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}
+.primary{
+  border:0;background:white;color:#090909;font-weight:700;
+  border-radius:999px;padding:10px 16px
+}
+.secondary{
+  border:1px solid #333;background:#1b1b1b;color:#fff;
+  border-radius:999px;padding:10px 14px
+}
+.danger{border-color:#4a2525;color:#ff8a8a}
+.note{font-size:12px;color:#737373;line-height:1.5;margin-top:12px}
+.thread-editor{
+  margin-top:14px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.thread-part{
+  position:relative;
+  border:1px solid #292929;
+  background:#101010;
+  border-radius:16px;
+  padding:13px;
+}
+.thread-part-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.part-label{font-size:12px;color:#c9c9c9;font-weight:700}
+.remove-part{
+  border:0;
+  background:transparent;
+  color:#888;
+  padding:2px 4px;
+  font-size:12px;
+}
+.remove-part:hover{color:#ff8a8a}
+.preview-area{
+  background:#000;
+  display:flex;
+  justify-content:center;
+  padding:24px 14px 80px;
+}
+.phone{
+  width:100%;
+  max-width:430px;
+  min-height:100vh;
+  background:#0a0a0a;
+  border-left:1px solid var(--line);
+  border-right:1px solid var(--line);
+}
+.topbar{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background:rgba(10,10,10,.94);
+  backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--line);
+}
+.toprow{
+  height:56px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 16px;
+}
+.brand{font-size:26px;font-weight:800;letter-spacing:-.06em}
+.topicon{font-size:19px;color:#d3d3d3}
+.tabs{height:45px;display:flex}
+.tab{flex:1;text-align:center;color:#8c8c8c;font-size:14px;padding-top:12px;position:relative}
+.tab.active{color:white;font-weight:650}
+.tab.active::after{
+  content:"";position:absolute;left:25%;right:25%;bottom:0;height:2px;background:white
+}
+.feed{min-height:300px}
+.empty{padding:60px 26px;text-align:center;color:#777;font-size:14px;line-height:1.6}
+.empty strong{display:block;color:#f1f1f1;margin-bottom:6px;font-size:16px}
+.feed-entry{border-bottom:1px solid var(--line)}
+.post{
+  display:flex;
+  gap:11px;
+  padding:15px 16px 14px;
+  position:relative;
+}
+.post.thread-child{padding-top:3px}
+.avatar-col{
+  position:relative;
+  width:41px;
+  flex:0 0 41px;
+}
+.avatar{
+  width:41px;height:41px;border-radius:50%;
+  object-fit:cover;background:#232323;border:1px solid #303030;
+  position:relative;z-index:2
+}
+.avatar.fallback{display:grid;place-items:center;font-weight:700;color:#ddd}
+.connector{
+  position:absolute;
+  top:44px;
+  bottom:-18px;
+  left:20px;
+  width:2px;
+  background:#2e2e2e;
+  z-index:1;
+}
+.post:last-child .connector{display:none}
+.post-main{flex:1;min-width:0}
+.post-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.name-line{display:flex;align-items:center;gap:6px;min-width:0}
+.name{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:13px;color:var(--muted)}
+.more-wrap{position:relative}
+.more{border:0;background:transparent;color:#aaa;font-size:21px;line-height:1;padding:0 2px}
+.menu{
+  display:none;
+  position:absolute;
+  right:0;top:26px;
+  min-width:135px;
+  background:#181818;
+  border:1px solid #333;
+  border-radius:13px;
+  overflow:hidden;
+  box-shadow:0 16px 40px rgba(0,0,0,.5);
+  z-index:30;
+}
+.more-wrap.open .menu{display:block}
+.menu button{display:block;width:100%;border:0;background:transparent;color:#eee;text-align:left;padding:11px 13px}
+.menu button:hover{background:#232323}
+.menu .del{color:#ff7a7a}
+.text{
+  margin-top:5px;
+  white-space:pre-wrap;
+  word-break:break-word;
+  font-size:15.5px;
+  line-height:1.47;
+  letter-spacing:-.01em;
+}
+.post-actions{
+  display:flex;
+  align-items:center;
+  gap:19px;
+  margin-top:13px;
+  color:#d7d7d7;
+  font-size:20px;
+}
+.action{display:flex;align-items:center;gap:5px}
+.post-foot{display:flex;gap:10px;margin-top:10px;color:#777;font-size:12px}
+.toast{
+  position:fixed;
+  left:50%;bottom:24px;
+  transform:translateX(-50%) translateY(20px);
+  background:#f4f4f4;color:#111;
+  padding:10px 14px;border-radius:999px;
+  font-size:13px;font-weight:700;
+  opacity:0;pointer-events:none;transition:.2s;z-index:100
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:850px){
+  .app{display:block}
+  .editor{
+    position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line)
+  }
+  .preview-area{padding:0}
+  .phone{max-width:100%;border:0}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="editor">
+    <a class="back-link" href="./index.html">← マイツール</a>
+    <h1>デモThreads</h1>
+    <div class="sub">
+      単発投稿もツリー投稿も、保存すると右側のTLに追加されます。
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>表示名</label>
+        <input id="displayName" value="Your Name">
+      </div>
+      <div class="field">
+        <label>ユーザーネーム</label>
+        <input id="username" value="username">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>アイコン画像URL（任意）</label>
+      <input id="avatarUrl" placeholder="https://...">
+    </div>
+
+    <div id="threadEditor" class="thread-editor"></div>
+
+    <div class="actions">
+      <button type="button" class="secondary" id="addPart">＋ ツリーを追加</button>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="primary" id="savePost">保存してTLに追加</button>
+            <button type="button" class="secondary" id="clearInput">入力をクリア</button>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="secondary" id="exportJson">JSONを書き出す</button>
+      <label class="secondary" style="cursor:pointer">
+        JSONを読み込む
+        <input id="importJson" type="file" accept="application/json" style="display:none">
+      </label>
+      <button type="button" class="secondary danger" id="resetTl">TLをリセット</button>
+    </div>
+
+    <div class="note">
+      「＋ ツリーを追加」で2投稿目、3投稿目…を必要な数だけ増やせます。
+    </div>
+  </aside>
+
+  <main class="preview-area">
+    <section class="phone">
+      <header class="topbar">
+        <div class="toprow">
+          <div class="topicon">◎</div>
+          <div class="brand">@</div>
+          <div class="topicon">☰</div>
+        </div>
+        <div class="tabs">
+          <div class="tab active">おすすめ</div>
+          <div class="tab">フォロー中</div>
+        </div>
+      </header>
+
+      <section class="feed" id="feed"></section>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'demo_threads_tree_v2';
+let state = loadState();
+let editingId = null;
+let draftParts = [{text:''}];
+
+const $ = id => document.getElementById(id);
+
+function defaultState(){
+  return {
+    profile:{displayName:'Your Name', username:'username', avatarUrl:''},
+    posts:[]
+  };
+}
+function loadState(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if(saved && saved.posts) return saved;
+  }catch{}
+  return defaultState();
+}
+function persist(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+function escapeHtml(s=''){
+  return String(s).replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+  }[m]));
+}
+function uid(){
+  return crypto.randomUUID ? crypto.randomUUID() : Date.now()+'_'+Math.random().toString(16).slice(2);
+}
+function initial(name){
+  return (name || 'U').trim().slice(0,1).toUpperCase() || 'U';
+}
+function avatarHtml(url,name){
+  if(url){
+    return `<img class="avatar" src="${escapeHtml(url)}" onerror="this.outerHTML='<div class=&quot;avatar fallback&quot;>${escapeHtml(initial(name))}</div>'">`;
+  }
+  return `<div class="avatar fallback">${escapeHtml(initial(name))}</div>`;
+}
+function timeAgo(ts){
+  const sec = Math.max(0, (Date.now()-new Date(ts).getTime())/1000);
+  if(sec<60) return '今';
+  if(sec<3600) return Math.floor(sec/60)+'分';
+  if(sec<86400) return Math.floor(sec/3600)+'時間';
+  if(sec<604800) return Math.floor(sec/86400)+'日';
+  return new Date(ts).toLocaleDateString('ja-JP',{month:'numeric',day:'numeric'});
+}
+function updateProfileFromInputs(){
+  state.profile = {
+    displayName: $('displayName').value.trim() || 'Your Name',
+    username: $('username').value.trim().replace(/^@/,'') || 'username',
+    avatarUrl: $('avatarUrl').value.trim()
+  };
+  persist();
+  renderFeed();
+}
+function syncProfileInputs(){
+  $('displayName').value = state.profile.displayName || 'Your Name';
+  $('username').value = state.profile.username || 'username';
+  $('avatarUrl').value = state.profile.avatarUrl || '';
+}
+
+function renderEditor(){
+  const host = $('threadEditor');
+  host.innerHTML = draftParts.map((part,i)=>`
+    <section class="thread-part" data-index="${i}">
+      <div class="thread-part-head">
+        <div class="part-label">${i===0 ? '親投稿' : `ツリー ${i+1}`}</div>
+        ${i>0 ? `<button type="button" class="remove-part" onclick="removePart(${i})">削除</button>` : ''}
+      </div>
+
+      <textarea class="part-text" data-index="${i}" placeholder="${i===0 ? '親投稿を書く' : '続きの投稿を書く'}">${escapeHtml(part.text)}</textarea>
+      <div class="counter">
+        <span>${part.text.length}文字</span>
+        <span>${part.text ? part.text.split('\n').length : 0}行</span>
+      </div>
+
+    </section>
+  `).join('');
+
+  host.querySelectorAll('.part-text').forEach(el=>{
+    el.addEventListener('input',e=>{
+      const i=Number(e.target.dataset.index);
+      draftParts[i].text=e.target.value;
+      renderCounterOnly(e.target.closest('.thread-part'), draftParts[i]);
+    });
+  });
+}
+function renderCounterOnly(section, part){
+  const spans=section.querySelectorAll('.counter span');
+  spans[0].textContent=part.text.length+'文字';
+  spans[1].textContent=(part.text ? part.text.split('\n').length : 0)+'行';
+}
+function removePart(index){
+  if(index===0)return;
+  draftParts.splice(index,1);
+  renderEditor();
+}
+function addPart(){
+  draftParts.push({text:''});
+  renderEditor();
+  setTimeout(()=>{
+    const areas=document.querySelectorAll('.part-text');
+    areas[areas.length-1]?.focus();
+  },0);
+}
+function clearDraft(){
+  editingId=null;
+  draftParts=[{text:''}];
+  $('savePost').textContent='保存してTLに追加';
+  renderEditor();
+}
+function getCleanParts(){
+  return draftParts
+    .map(p=>({text:(p.text||'').trim()}))
+    .filter(p=>p.text);
+}
+function savePost(){
+  const parts=getCleanParts();
+  if(!parts.length){
+    showToast('投稿文を入力してください');
+    return;
+  }
+
+  updateProfileFromInputs();
+
+  if(editingId){
+    const item=state.posts.find(x=>x.id===editingId);
+    if(item){
+      item.parts=parts;
+      item.updatedAt=new Date().toISOString();
+    }
+    showToast('投稿を更新しました');
+  }else{
+    state.posts.push({
+      id:uid(),
+      parts,
+      createdAt:new Date().toISOString()
+    });
+    showToast(parts.length>1 ? 'ツリーをTLに追加しました' : '投稿をTLに追加しました');
+  }
+
+  persist();
+  renderFeed();
+  clearDraft();
+}
+function editPost(id){
+  const item=state.posts.find(x=>x.id===id);
+  if(!item)return;
+  editingId=id;
+  draftParts=item.parts.map(p=>({...p}));
+  $('savePost').textContent='更新してTLに反映';
+  renderEditor();
+  window.scrollTo({top:0,behavior:'smooth'});
+  showToast('編集モード');
+}
+function duplicatePost(id){
+  const item=state.posts.find(x=>x.id===id);
+  if(!item)return;
+  state.posts.push({
+    id:uid(),
+    parts:item.parts.map(p=>({...p})),
+    createdAt:new Date().toISOString()
+  });
+  persist();
+  renderFeed();
+  showToast('複製しました');
+}
+function deletePost(id){
+  state.posts=state.posts.filter(x=>x.id!==id);
+  persist();
+  renderFeed();
+  showToast('削除しました');
+}
+function toggleMenu(e,btn){
+  e.stopPropagation();
+  document.querySelectorAll('.more-wrap.open').forEach(x=>{
+    if(x!==btn.parentElement)x.classList.remove('open');
+  });
+  btn.parentElement.classList.toggle('open');
+}
+document.addEventListener('click',()=>{
+  document.querySelectorAll('.more-wrap.open').forEach(x=>x.classList.remove('open'));
+});
+
+function renderFeed(){
+  const feed=$('feed');
+  const posts=[...state.posts].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  if(!posts.length){
+    feed.innerHTML=`<div class="empty"><strong>まだ投稿がありません</strong>左側で単発投稿かツリー投稿を作って保存してください。</div>`;
+    return;
+  }
+
+  const p=state.profile;
+  feed.innerHTML=posts.map(entry=>{
+    const parts=(entry.parts || []).map(part=>({text:part.text || ''}));
+    return `
+      <section class="feed-entry">
+        ${parts.map((part,i)=>`
+          <article class="post ${i>0?'thread-child':''}">
+            <div class="avatar-col">
+              ${avatarHtml(p.avatarUrl,p.displayName)}
+              ${i < parts.length-1 ? '<div class="connector"></div>' : ''}
+            </div>
+
+            <div class="post-main">
+              <div class="post-head">
+                <div class="name-line">
+                  <span class="name">${escapeHtml(p.displayName||'Your Name')}</span>
+                  <span class="meta">${timeAgo(entry.createdAt)}</span>
+                </div>
+
+                ${i===0 ? `
+                  <div class="more-wrap">
+                    <button class="more" onclick="toggleMenu(event,this)">⋯</button>
+                    <div class="menu">
+                      <button onclick="editPost('${entry.id}')">編集</button>
+                      <button onclick="duplicatePost('${entry.id}')">複製</button>
+                      <button class="del" onclick="deletePost('${entry.id}')">削除</button>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+
+              <div class="text">${escapeHtml(part.text)}</div>
+
+              <div class="post-actions">
+                <div class="action">♡</div>
+                <div class="action">◯</div>
+                <div class="action">↻</div>
+                <div class="action">⌁</div>
+              </div>
+
+              <div class="post-foot">
+                <span>${part.text.length}文字</span>
+                <span>${part.text ? part.text.split('\n').length : 0}行</span>
+                ${parts.length>1 ? `<span>${i+1}/${parts.length}</span>` : ''}
+              </div>
+            </div>
+          </article>
+        `).join('')}
+      </section>
+    `;
+  }).join('');
+}
+
+let toastTimer;
+function showToast(msg){
+  const t=$('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),1400);
+}
+
+$('addPart').addEventListener('click',addPart);
+$('savePost').addEventListener('click',savePost);
+$('clearInput').addEventListener('click',clearDraft);
+
+
+
+$('exportJson').addEventListener('click',()=>{
+  updateProfileFromInputs();
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='demo_threads_data.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$('importJson').addEventListener('change',async e=>{
+  const f=e.target.files[0];
+  if(!f)return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(!data.profile || !Array.isArray(data.posts))throw new Error();
+    state=data;
+    persist();
+    syncProfileInputs();
+    renderFeed();
+    showToast('JSONを読み込みました');
+  }catch{
+    alert('JSON形式を確認してください');
+  }
+  e.target.value='';
+});
+
+{
+  const resetButton=$('resetTl');
+  let armed=false;
+  let timer=null;
+
+  resetButton.addEventListener('click',()=>{
+    if(!armed){
+      armed=true;
+      resetButton.textContent='もう一度押すと全削除';
+      showToast('確認：もう一度押すとTLを全削除します');
+      clearTimeout(timer);
+      timer=setTimeout(()=>{
+        armed=false;
+        resetButton.textContent='TLをリセット';
+      },3500);
+      return;
+    }
+
+    clearTimeout(timer);
+    state.posts=[];
+    persist();
+    renderFeed();
+    armed=false;
+    resetButton.textContent='TLをリセット';
+    showToast('TLをリセットしました');
+  });
+}
+
+['displayName','username','avatarUrl'].forEach(id=>{
+  $(id).addEventListener('input',updateProfileFromInputs);
+});
+
+syncProfileInputs();
+renderEditor();
+renderFeed();
+</script>
+</body>
+</html>
