@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <title>プロンプト保管庫</title>
+  <style>
+    :root{
+      --bg:#f5f6f8;
+      --panel:#fff;
+      --text:#111318;
+      --muted:#757b84;
+      --line:#e5e7eb;
+      --dark:#0f1115;
+      --soft:#f1f3f5;
+      --danger:#b42318;
+      --star:#d99a00;
+      --radius:18px;
+      --shadow:0 10px 30px rgba(15,17,21,.06);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif}
+    button,input,textarea,select{font:inherit}
+    button{cursor:pointer}
+    main{max-width:920px;margin:0 auto;padding:26px 20px 96px}
+    .head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+    .head h1{font-size:26px;margin:0}
+    .back{color:var(--muted);text-decoration:none;font-size:13px;padding:10px 4px}
+    .toolbar{display:flex;gap:10px;margin-bottom:12px}
+    .toolbar input,.toolbar select{
+      border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px 14px;outline:none
+    }
+    .toolbar input{flex:1;min-width:0}
+    .btn{border:1px solid var(--line);background:#fff;color:#111;border-radius:14px;padding:11px 15px;font-weight:700;white-space:nowrap}
+    .btn.primary{background:#111;color:#fff;border-color:#111}
+    .btn.danger{color:var(--danger)}
+    .filters{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+    .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;color:#4c525b}
+    .chip.active{background:#111;color:#fff;border-color:#111}
+    .count{font-size:13px;color:var(--muted);margin-bottom:10px}
+    .list{display:grid;gap:11px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+    .card-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+    .card-title{font-size:17px;font-weight:800;margin:0 0 4px;word-break:break-word}
+    .meta{font-size:12px;color:var(--muted)}
+    .star{border:0;background:none;font-size:20px;line-height:1;color:#c3c7ce;padding:2px 4px}
+    .star.on{color:var(--star)}
+    .preview{
+      margin:12px 0 0;white-space:pre-wrap;word-break:break-word;line-height:1.7;color:#30343a;
+      background:var(--soft);border-radius:12px;padding:12px 14px;max-height:9.5em;overflow:hidden;font-size:14px
+    }
+    .preview.open{max-height:none}
+    .var{background:#fff1c2;border-radius:4px;padding:0 2px}
+    .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+    .tag{font-size:12px;background:var(--soft);border-radius:999px;padding:4px 9px;color:#4c525b}
+    .memo{font-size:13px;color:var(--muted);margin-top:8px;white-space:pre-wrap}
+    .actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;justify-content:flex-end}
+    .ghost{border:1px solid var(--line);background:#fff;border-radius:11px;padding:8px 11px;font-size:13px}
+    .ghost.copy{background:#111;color:#fff;border-color:#111;font-weight:700}
+    .empty{background:#fff;border:1px dashed #d4d7dd;border-radius:18px;padding:48px 20px;text-align:center;color:var(--muted)}
+    dialog{border:0;border-radius:22px;width:min(720px,calc(100vw - 26px));padding:0;box-shadow:0 32px 100px rgba(0,0,0,.28)}
+    dialog::backdrop{background:rgba(0,0,0,.45)}
+    .modal{padding:22px;background:#fff}
+    .modal h2{margin:0 0 16px;font-size:20px}
+    .field{margin-bottom:14px}
+    .field label{display:block;font-size:13px;font-weight:750;margin-bottom:6px}
+    .field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:13px;padding:11px 13px;outline:none;background:#fff}
+    .field textarea{min-height:120px;resize:vertical;line-height:1.65}
+    #bodyInput{min-height:240px}
+    .hint{font-size:12px;color:var(--muted);margin-top:5px}
+    .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
+    .toast{
+      position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
+      transition:.22s;background:#111;color:#fff;padding:11px 15px;border-radius:12px;font-size:13px;z-index:100
+    }
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    @media(max-width:600px){
+      main{padding:14px 13px 96px}
+      .head h1{font-size:21px}
+      .toolbar{flex-wrap:wrap}
+      .toolbar input{flex-basis:100%}
+      .toolbar select{flex:1}
+    }
+  </style>
+</head>
+<body>
+<main>
+  <div class="head">
+    <div>
+      <a class="back" href="./index.html">← マイツール</a>
+      <h1>プロンプト保管庫</h1>
+    </div>
+    <button id="newBtn" class="btn primary" type="button">＋ 新規</button>
+  </div>
+
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="タイトル・本文・タグで検索" autocomplete="off">
+    <select id="sort" aria-label="並び順">
+      <option value="updated">更新順</option>
+      <option value="used">よく使う順</option>
+      <option value="recent">最近使った順</option>
+      <option value="title">タイトル順</option>
+    </select>
+    <button id="dataBtn" class="btn" type="button">データ管理</button>
+  </div>
+
+  <div id="filters" class="filters"></div>
+  <div id="count" class="count"></div>
+  <section id="list" class="list"></section>
+</main>
+
+<dialog id="editor">
+  <form id="editorForm" class="modal" method="dialog">
+    <h2 id="editorTitle">新規プロンプト</h2>
+    <div class="field">
+      <label for="titleInput">タイトル</label>
+      <input id="titleInput" maxlength="160" required>
+    </div>
+    <div class="field">
+      <label for="bodyInput">プロンプト本文</label>
+      <textarea id="bodyInput" required></textarea>
+      <div class="hint">{{テーマ}} のように書いた部分は、コピー時に入力欄が出て差し替えられます。</div>
+    </div>
+    <div class="field">
+      <label for="tagsInput">タグ（カンマ・空白区切り）</label>
+      <input id="tagsInput" placeholder="例: Threads, リサーチ">
+    </div>
+    <div class="field">
+      <label for="memoInput">メモ（使いどころ・注意点など）</label>
+      <textarea id="memoInput" style="min-height:70px"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" type="button" data-close>キャンセル</button>
+      <button class="btn primary" type="submit">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="filler">
+  <form id="fillerForm" class="modal" method="dialog">
+    <h2>変数を入力してコピー</h2>
+    <div id="fillerFields"></div>
+    <div class="modal-actions">
+      <button class="btn" type="button" data-close>キャンセル</button>
+      <button class="btn primary" type="submit">コピー</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dataDialog">
+  <div class="modal">
+    <h2>データ管理</h2>
+    <p class="hint">データはこの端末のブラウザ内に保存されます。別の端末へ移すときはJSONで書き出し→読み込みしてください。読み込みは同じIDを上書き・それ以外を追加します。</p>
+    <div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button id="exportBtn" class="btn" type="button">JSON書き出し</button>
+      <button id="importBtn" class="btn" type="button">JSON読み込み</button>
+      <input id="importFile" type="file" accept="application/json,.json" hidden>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" type="button" data-close>閉じる</button>
+    </div>
+  </div>
+</dialog>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const KEY = 'prompt-vault:v1';
+const VAR_RE = /\{\{\s*([^{}]+?)\s*\}\}/g;
+const $ = id => document.getElementById(id);
+
+let items = load();
+let tagFilter = '';   // '' = すべて, '★' = お気に入り, それ以外はタグ名
+let editingId = null;
+let fillingItem = null;
+
+function load(){
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(items)); }
+  catch { toast('保存に失敗しました（ブラウザの保存領域を確認してください）'); }
+}
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function parseTags(s){ return [...new Set(s.split(/[,、\s]+/).map(t => t.trim()).filter(Boolean))]; }
+function varsOf(body){ return [...new Set([...body.matchAll(VAR_RE)].map(m => m[1]))]; }
+function esc(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmt(ts){ return ts ? new Date(ts).toLocaleString('ja-JP', {dateStyle:'short', timeStyle:'short'}) : '—'; }
+
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function renderFilters(){
+  const tags = [...new Set(items.flatMap(i => i.tags))].sort((a, b) => a.localeCompare(b, 'ja'));
+  if (tagFilter && tagFilter !== '★' && !tags.includes(tagFilter)) tagFilter = '';
+  $('filters').innerHTML = ['', '★', ...tags].map(t =>
+    `<button class="chip${t === tagFilter ? ' active' : ''}" data-tag="${esc(t)}">${t === '' ? 'すべて' : t === '★' ? '★ お気に入り' : esc(t)}</button>`
+  ).join('');
+}
+
+function visibleItems(){
+  const q = $('search').value.trim().toLowerCase();
+  const list = items.filter(i =>
+    (!tagFilter || (tagFilter === '★' ? i.fav : i.tags.includes(tagFilter))) &&
+    (!q || [i.title, i.body, i.memo, ...i.tags].join('\n').toLowerCase().includes(q))
+  );
+  const by = {
+    updated: (a, b) => b.updatedAt - a.updatedAt,
+    used:    (a, b) => b.useCount - a.useCount || b.updatedAt - a.updatedAt,
+    recent:  (a, b) => (b.lastUsedAt || 0) - (a.lastUsedAt || 0),
+    title:   (a, b) => a.title.localeCompare(b.title, 'ja'),
+  }[$('sort').value];
+  // お気に入りは常に上に
+  return list.sort((a, b) => (b.fav - a.fav) || by(a, b));
+}
+
+function render(){
+  renderFilters();
+  const list = visibleItems();
+  $('count').textContent = `${list.length}件 / 全${items.length}件`;
+  if (!list.length){
+    $('list').innerHTML = `<div class="empty">${items.length ? '該当するプロンプトがありません' : 'まだプロンプトがありません。「＋ 新規」から追加してください'}</div>`;
+    return;
+  }
+  $('list').innerHTML = list.map(i => `
+    <article class="card" data-id="${i.id}">
+      <div class="card-top">
+        <div>
+          <h3 class="card-title">${esc(i.title)}</h3>
+          <div class="meta">使用 ${i.useCount}回 ・ 最終使用 ${fmt(i.lastUsedAt)} ・ 更新 ${fmt(i.updatedAt)}</div>
+        </div>
+        <button class="star${i.fav ? ' on' : ''}" data-act="fav" aria-label="お気に入り">★</button>
+      </div>
+      <div class="preview" data-act="expand" title="クリックで全文表示">${esc(i.body).replace(VAR_RE, '<span class="var">$&</span>')}</div>
+      ${i.tags.length ? `<div class="tags">${i.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>` : ''}
+      ${i.memo ? `<div class="memo">${esc(i.memo)}</div>` : ''}
+      <div class="actions">
+        <button class="ghost danger" data-act="del">削除</button>
+        <button class="ghost" data-act="dup">複製</button>
+        <button class="ghost" data-act="edit">編集</button>
+        <button class="ghost copy" data-act="copy">${varsOf(i.body).length ? '変数を入れてコピー' : 'コピー'}</button>
+      </div>
+    </article>`).join('');
+}
+
+async function writeClipboard(text){
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }
+}
+
+async function copyItem(item, text){
+  if (!await writeClipboard(text)) { toast('コピーできませんでした'); return; }
+  item.useCount++;
+  item.lastUsedAt = Date.now();
+  save();
+  render();
+  toast('コピーしました');
+}
+
+function openEditor(item){
+  editingId = item ? item.id : null;
+  $('editorTitle').textContent = item ? 'プロンプトを編集' : '新規プロンプト';
+  $('titleInput').value = item ? item.title : '';
+  $('bodyInput').value = item ? item.body : '';
+  $('tagsInput').value = item ? item.tags.join(', ') : '';
+  $('memoInput').value = item ? item.memo : '';
+  $('editor').showModal();
+  $('titleInput').focus();
+}
+
+function openFiller(item){
+  fillingItem = item;
+  $('fillerFields').innerHTML = varsOf(item.body).map((v, n) => `
+    <div class="field">
+      <label for="var${n}">${esc(v)}</label>
+      <textarea id="var${n}" data-var="${esc(v)}" style="min-height:52px"></textarea>
+    </div>`).join('');
+  $('filler').showModal();
+  $('fillerFields').querySelector('textarea').focus();
+}
+
+$('editorForm').addEventListener('submit', () => {
+  const now = Date.now();
+  const data = {
+    title: $('titleInput').value.trim(),
+    body: $('bodyInput').value,
+    tags: parseTags($('tagsInput').value),
+    memo: $('memoInput').value.trim(),
+    updatedAt: now,
+  };
+  const cur = items.find(i => i.id === editingId);
+  if (cur) Object.assign(cur, data);
+  else items.push({ id: uid(), fav: false, useCount: 0, lastUsedAt: 0, createdAt: now, ...data });
+  save();
+  render();
+  toast('保存しました');
+});
+
+$('fillerForm').addEventListener('submit', () => {
+  const values = {};
+  $('fillerFields').querySelectorAll('textarea').forEach(t => { values[t.dataset.var] = t.value; });
+  const text = fillingItem.body.replace(VAR_RE, (m, name) => values[name] || m);
+  copyItem(fillingItem, text);
+});
+
+$('list').addEventListener('click', e => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const item = items.find(i => i.id === btn.closest('.card').dataset.id);
+  switch (btn.dataset.act){
+    case 'copy':
+      varsOf(item.body).length ? openFiller(item) : copyItem(item, item.body);
+      break;
+    case 'edit': openEditor(item); break;
+    case 'dup':
+      items.push({ ...item, id: uid(), title: item.title + '（コピー）', tags: [...item.tags], fav: false,
+                   useCount: 0, lastUsedAt: 0, createdAt: Date.now(), updatedAt: Date.now() });
+      save(); render(); toast('複製しました');
+      break;
+    case 'del':
+      if (!confirm(`「${item.title}」を削除します。元に戻せません。`)) return;
+      items = items.filter(i => i !== item);
+      save(); render(); toast('削除しました');
+      break;
+    case 'fav':
+      item.fav = !item.fav;
+      save(); render();
+      break;
+    case 'expand':
+      btn.classList.toggle('open');
+      break;
+  }
+});
+
+$('filters').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  tagFilter = chip.dataset.tag;
+  render();
+});
+
+$('exportBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ app: 'prompt-vault', version: 1, exportedAt: new Date().toISOString(), items }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `prompt-vault-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast(`${items.length}件を書き出しました`);
+});
+
+$('importBtn').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const json = JSON.parse(await file.text());
+    const incoming = (Array.isArray(json) ? json : json.items || []).filter(i => i && i.title && i.body);
+    if (!incoming.length) throw new Error('empty');
+    let added = 0, updated = 0;
+    for (const raw of incoming){
+      const norm = {
+        id: raw.id || uid(), title: String(raw.title), body: String(raw.body),
+        tags: Array.isArray(raw.tags) ? raw.tags.map(String) : parseTags(String(raw.tags || '')),
+        memo: String(raw.memo || ''), fav: !!raw.fav, useCount: +raw.useCount || 0,
+        lastUsedAt: +raw.lastUsedAt || 0, createdAt: +raw.createdAt || Date.now(), updatedAt: +raw.updatedAt || Date.now(),
+      };
+      const n = items.findIndex(i => i.id === norm.id);
+      if (n >= 0) { items[n] = norm; updated++; } else { items.push(norm); added++; }
+    }
+    save(); render();
+    toast(`追加 ${added}件・上書き ${updated}件`);
+  } catch {
+    toast('読み込めませんでした（プロンプト保管庫のJSONか確認してください）');
+  }
+});
+
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
+$('newBtn').addEventListener('click', () => openEditor(null));
+$('dataBtn').addEventListener('click', () => $('dataDialog').showModal());
+$('search').addEventListener('input', render);
+$('sort').addEventListener('change', render);
+
+render();
+</script>
+</body>
+</html>
