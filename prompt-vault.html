@@ -158,6 +158,23 @@
       <button id="importBtn" class="btn" type="button">JSON読み込み</button>
       <input id="importFile" type="file" accept="application/json,.json" hidden>
     </div>
+
+    <h2 style="margin-top:22px">クラウド同期（GitHub Gist）</h2>
+    <p class="hint">GitHubの非公開Gistをデータ置き場にして端末間を自動同期します。<a href="https://github.com/settings/tokens/new?scopes=gist&description=prompt-vault" target="_blank" rel="noopener">こちら</a>で「gist」権限のみのトークンを発行し、下に貼り付けてください（トークンはこの端末のブラウザ内にのみ保存されます）。2台目以降は同じトークン発行画面で新しいトークンを作り、1台目に表示されたGist IDを一緒に入力してください。</p>
+    <div class="field">
+      <label for="syncToken">GitHubトークン</label>
+      <input id="syncToken" type="password" placeholder="ghp_... または github_pat_..." autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="syncGistId">Gist ID（空欄なら新規作成／他端末では既存のIDを貼り付け）</label>
+      <input id="syncGistId" type="text" placeholder="初回同期で自動生成されます" autocomplete="off">
+    </div>
+    <p id="syncStatus" class="hint">未設定</p>
+    <div class="modal-actions" style="justify-content:flex-start;flex-wrap:wrap">
+      <button id="syncNowBtn" class="btn primary" type="button">今すぐ同期</button>
+      <button id="syncOffBtn" class="btn danger" type="button">同期を解除</button>
+    </div>
+
     <div class="modal-actions">
       <button class="btn" type="button" data-close>閉じる</button>
     </div>
@@ -168,13 +185,19 @@
 
 <script>
 const KEY = 'prompt-vault:v1';
+const TOMB_KEY = 'prompt-vault:tomb:v1';
+const SYNC_KEY = 'prompt-vault:sync:v1';
+const GIST_FILE = 'prompt-vault-data.json';
 const VAR_RE = /\{\{\s*([^{}]+?)\s*\}\}/g;
 const $ = id => document.getElementById(id);
 
 let items = load();
+let tombstones = loadTomb();   // { [id]: deletedAt }
 let tagFilter = '';   // '' = すべて, '★' = お気に入り, それ以外はタグ名
 let editingId = null;
 let fillingItem = null;
+let syncing = false;
+let syncTimer = null;
 
 function load(){
   try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
@@ -182,6 +205,19 @@ function load(){
 function save(){
   try { localStorage.setItem(KEY, JSON.stringify(items)); }
   catch { toast('保存に失敗しました（ブラウザの保存領域を確認してください）'); }
+  scheduleSync();
+}
+function loadTomb(){
+  try { return JSON.parse(localStorage.getItem(TOMB_KEY)) || {}; } catch { return {}; }
+}
+function saveTomb(){
+  try { localStorage.setItem(TOMB_KEY, JSON.stringify(tombstones)); } catch {}
+}
+function loadSync(){
+  try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch { return {}; }
+}
+function saveSync(cfg){
+  try { localStorage.setItem(SYNC_KEY, JSON.stringify(cfg)); } catch {}
 }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function parseTags(s){ return [...new Set(s.split(/[,、\s]+/).map(t => t.trim()).filter(Boolean))]; }
@@ -336,6 +372,8 @@ $('list').addEventListener('click', e => {
       break;
     case 'del':
       if (!confirm(`「${item.title}」を削除します。元に戻せません。`)) return;
+      tombstones[item.id] = Date.now();
+      saveTomb();
       items = items.filter(i => i !== item);
       save(); render(); toast('削除しました');
       break;
@@ -393,13 +431,143 @@ $('importFile').addEventListener('change', async e => {
   }
 });
 
+// ---- クラウド同期（GitHub Gist） ----
+
+function setSyncStatus(text){ $('syncStatus').textContent = text; }
+
+async function ghFetch(url, token, options = {}){
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github+json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...options.headers,
+    },
+  });
+  if (!res.ok){
+    if (res.status === 401) throw new Error('トークンが無効です');
+    if (res.status === 404) throw new Error('Gistが見つかりません（IDを確認してください）');
+    throw new Error(`通信エラー（${res.status}）`);
+  }
+  return res.json();
+}
+
+async function gistGet(token, gistId){
+  const g = await ghFetch(`https://api.github.com/gists/${gistId}`, token);
+  const content = g.files && g.files[GIST_FILE] && g.files[GIST_FILE].content;
+  if (!content) return { items: [], tombstones: {} };
+  try { return JSON.parse(content); } catch { return { items: [], tombstones: {} }; }
+}
+
+async function gistCreate(token, data){
+  return ghFetch('https://api.github.com/gists', token, {
+    method: 'POST',
+    body: JSON.stringify({
+      description: 'prompt-vault sync data (auto-generated, do not edit manually)',
+      public: false,
+      files: { [GIST_FILE]: { content: JSON.stringify(data) } },
+    }),
+  });
+}
+
+async function gistUpdate(token, gistId, data){
+  return ghFetch(`https://api.github.com/gists/${gistId}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(data) } } }),
+  });
+}
+
+// リモートの items/tombstones をローカルへマージ（新しい updatedAt を優先、削除はtombstoneで両方向に伝播）
+function mergeRemote(remoteItems, remoteTombstones){
+  const merged = new Map(items.map(i => [i.id, i]));
+  for (const r of (remoteItems || [])){
+    const l = merged.get(r.id);
+    if (!l || r.updatedAt > l.updatedAt) merged.set(r.id, r);
+  }
+  const allTomb = { ...tombstones };
+  for (const [id, t] of Object.entries(remoteTombstones || {})){
+    if (!allTomb[id] || t > allTomb[id]) allTomb[id] = t;
+  }
+  for (const [id, t] of Object.entries(allTomb)){
+    const it = merged.get(id);
+    if (it && t >= it.updatedAt) merged.delete(id);
+  }
+  items = [...merged.values()];
+  tombstones = allTomb;
+  try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {}
+  saveTomb();
+}
+
+async function syncNow(silent){
+  const cfg = loadSync();
+  if (!cfg.token){ if (!silent) toast('先にトークンを入力してください'); return; }
+  if (syncing) return;
+  syncing = true;
+  setSyncStatus('同期中…');
+  try {
+    let gistId = cfg.gistId;
+    if (!gistId){
+      const created = await gistCreate(cfg.token, { items, tombstones });
+      gistId = created.id;
+      cfg.gistId = gistId;
+      $('syncGistId').value = gistId;
+    } else {
+      const remote = await gistGet(cfg.token, gistId);
+      mergeRemote(remote.items, remote.tombstones);
+      await gistUpdate(cfg.token, gistId, { items, tombstones });
+    }
+    cfg.lastSyncedAt = Date.now();
+    saveSync(cfg);
+    setSyncStatus(`最終同期: ${fmt(cfg.lastSyncedAt)}`);
+    render();
+    if (!silent) toast('同期しました');
+  } catch (err){
+    setSyncStatus('同期エラー: ' + err.message);
+    if (!silent) toast('同期に失敗しました: ' + err.message);
+  } finally {
+    syncing = false;
+  }
+}
+
+function scheduleSync(){
+  const cfg = loadSync();
+  if (!cfg.token) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncNow(true), 1500);
+}
+
+$('syncNowBtn').addEventListener('click', () => {
+  const cfg = loadSync();
+  cfg.token = $('syncToken').value.trim();
+  cfg.gistId = $('syncGistId').value.trim();
+  saveSync(cfg);
+  syncNow(false);
+});
+
+$('syncOffBtn').addEventListener('click', () => {
+  if (!confirm('この端末での自動同期設定を解除します（保存済みのプロンプト自体は消えません）。')) return;
+  localStorage.removeItem(SYNC_KEY);
+  $('syncToken').value = '';
+  $('syncGistId').value = '';
+  setSyncStatus('未設定');
+  toast('同期を解除しました');
+});
+
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 $('newBtn').addEventListener('click', () => openEditor(null));
-$('dataBtn').addEventListener('click', () => $('dataDialog').showModal());
+$('dataBtn').addEventListener('click', () => {
+  const cfg = loadSync();
+  $('syncToken').value = cfg.token || '';
+  $('syncGistId').value = cfg.gistId || '';
+  setSyncStatus(cfg.gistId ? (cfg.lastSyncedAt ? `最終同期: ${fmt(cfg.lastSyncedAt)}` : '未同期') : '未設定');
+  $('dataDialog').showModal();
+});
 $('search').addEventListener('input', render);
 $('sort').addEventListener('change', render);
 
 render();
+if (loadSync().token) syncNow(true);
 </script>
 </body>
 </html>
